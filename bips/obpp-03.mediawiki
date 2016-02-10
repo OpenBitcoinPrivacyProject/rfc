@@ -1,0 +1,82 @@
+<pre>
+  BIP: TBD
+  OBPP Draft: OBPP-03
+  Title: Best Practices for Heterogeneous Input Script Transactions
+  Author: Kristov Atlas  <kristov@openbitcoinprivacyproject.org>
+  Status: Draft
+  Type: Informational
+  Created: 2016-02-10
+</pre>
+
+==Abstract==
+
+The privacy of Bitcoin users with respect to graph analysis is reduced when a transaction is created that merges inputs composed from different scripts. However, creating such transactions is often unavoidable.
+
+This document proposes a set of best practice guidelines which minimize the adverse privacy consequences of such unavoidable transaction situations while simultaneously maximising the effectiveness of privacy-improving techniques such as CoinJoin.
+
+==Copyright==
+
+This BIP is in the public domain.
+
+==Definitions==
+
+* '''Heterogenous input script transaction (HIT)''': A transaction containing multiple inputs where not all inputs have identical scripts (e.g. a transaction spending from more than one Bitcoin address)
+* '''Unavoidable heterogenous input script transaction''': An HIT created as a result of a user’s desire to create a new output with a value larger than the value of his wallet's largest unspent output
+* '''Intentional heterogenous input script transaction''': An HIT created as part of a protocol for improving user privacy against graph analysis, such as CoinJoin
+
+==Motivations==
+
+The recommendations in this document are designed to accomplish two goals:
+
+# Maximise the effectiveness of privacy-enhancing transactions: Privacy-sensitive users may find that techniques such as CoinJoin are counterproductive if such transactions have a distinctive fingerprint which enables them to be censored or subjected to additional scrutiny.
+# Minimise the adverse privacy consequences of unavoidable heterogenous input transactions: If unavoidable HITs are indistinguishable from intentional HITs, a user creating an unavoidable HIT benefits from ambiguity with respect to graph analysis.
+# Limiting the effect on UTXO set growth: To date, non-standardized intentional HITs tend to increase the network's UTXO set with each transaction; this standard attempts to minimize this effect by standardizing unavoidable and intentional HITs to limit UTXO set growth.
+
+In order to achieve these goals, this specification proposes a set of best practices for heterogenous input script transaction creation. These practices accommodate all applicable requirements of both intentional and unavoidable HITs and render the two types indistinguishable to the maximum extent possible.
+
+In order to achieve this, two forms of HIT are proposed: Standard form and alternate form.
+
+==Standard form heterogenous input script transaction==
+
+===Rules===
+
+An HIT is Standard form if it adheres to all of the following rules:
+
+# The number of unique output scripts must be equal to the number of unique inputs scripts (irrespective of the number of inputs and outputs).
+# All output scripts must be unique.
+# At least one pair of outputs must be of equal value.
+# The largest output in the transaction is a member of a set containing at least two identically-sized outputs.
+
+===Rationale===
+
+The requirement for equal numbers of unique input/output scripts instead of equal number of inputs/outputs accommodates privacy-enhancing UTXO selection behavior. Wallets may contain spendable outputs with identical scripts due to intentional or accidental address reuse, or due to dusting attacks. In order to minimise the adverse privacy consequences of address reuse, any time a UTXO is included in a transaction as an input, all UTXOs with the same spending script should also be included in the transaction.
+
+The requirement that all output scripts are unique prevents address reuse. Restricting the number of outputs to the number of unique input scripts prevents this policy from growing the network’s UTXO set. A standard form HIT transaction will always have a number of inputs greater than or equal to the number of outputs.
+
+The requirement for at least one pair of outputs to be of equal value results in optimal join transactions, and causes intentional HITs to resemble unavoidable HITs.
+
+Outside controlled laboratory conditions, join transactions will not involve identically-sized inputs due to a lack of accommodating volume. Without the ability to cryptographically blind output values on the blockchain, every join transaction leaks information in the form of output sizes. Requiring a pair of identically sized outputs creates the desired ambiguity for spend outputs, but in most cases makes change outputs linkable to inputs.
+
+==Alternate form heterogenous input script transactions==
+
+The formation of a standard form HIT is not possible in the following cases:
+
+# The HIT is unavoidable, and the user’s wallet contains an insufficient number or size of UTXOs to create a standard form HIT.
+# The user wishes to reduce the number of utxos in their wallet, and does not have any sets of utxos with identical scripts.
+
+When one of the following cases exist, a compliant implementation may create an alternate form HIT by constructing a transaction as follows:
+
+===Procedure===
+
+# Find the smallest combination of inputs whose value is at least the value of the desired spend.
+## Add these inputs to the transaction.
+## Add a spend output to the transaction.
+## Add a change output to the transaction containing the difference between the current set of inputs and the desired spend.
+# Repeat step 1 to create a second spend output and change output.
+# Adjust the change outputs as necessary to pay the desired transaction fee.
+
+Clients which create intentional HITs must have the capability to form alternate form HITs, and must do so for a non-zero fraction of the transactions they create.
+
+==Non-compliant heterogenous input script transactions==
+
+If a user wishes to create an output that is larger than half the total size of their spendable outputs, or if their inputs are not distributed in a manner in which the alternate form procedure can be completed, then the user can not create a transaction which is compliant with this procedure.
