@@ -2,7 +2,7 @@
   BIP: TBD
   OBPP Draft: OBPP-03
   Title: Best Practices for Heterogeneous Input Script Transactions
-  Author: Kristov Atlas  <kristov@openbitcoinprivacyproject.org>
+  Author: Kristov Atlas <kristov@openbitcoinprivacyproject.org>
   Status: Draft
   Type: Informational
   Created: 2016-02-10
