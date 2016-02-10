@@ -26,7 +26,7 @@ This BIP is in the public domain.
 
 ==Motivations==
 
-The recommendations in this document are designed to accomplish two goals:
+The recommendations in this document are designed to accomplish three goals:
 
 # Maximise the effectiveness of privacy-enhancing transactions: Privacy-sensitive users may find that techniques such as CoinJoin are counterproductive if such transactions have a distinctive fingerprint which enables them to be censored or subjected to additional scrutiny.
 # Minimise the adverse privacy consequences of unavoidable heterogenous input transactions: If unavoidable HITs are indistinguishable from intentional HITs, a user creating an unavoidable HIT benefits from ambiguity with respect to graph analysis.
