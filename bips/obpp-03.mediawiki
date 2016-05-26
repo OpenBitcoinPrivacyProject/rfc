@@ -10,9 +10,9 @@
 
 ==Abstract==
 
-The privacy of Bitcoin users with respect to graph analysis is reduced when a transaction is created that contains inputs composed from different scripts. However, creating such transactions is often unavoidable.
+When a Bitcoin transaction contains inputs that reference outputs sent to different Bitcoin addresses, personally identifiable information of user will leak into the blockchain in an uncontrolled manner. While undersirable, these transactions are frequently unavoidable to the natural fragmentation of wallet balances over time.
 
-This document proposes a set of best practice guidelines which minimize the adverse privacy consequences of such unavoidable transaction situations while simultaneously maximising the effectiveness of user protection protocols.
+This document proposes a set of best practice guidelines which minimize the uncontrolled disclosure of personally identifiable information by defining standard forms for transactions containing heterogenous input scripts.
 
 ==Copyright==
 
