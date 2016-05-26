@@ -10,7 +10,7 @@
 
 ==Abstract==
 
-When a Bitcoin transaction contains inputs that reference outputs sent to different Bitcoin addresses, personally identifiable information of user will leak into the blockchain in an uncontrolled manner. While undersirable, these transactions are frequently unavoidable to the natural fragmentation of wallet balances over time.
+When a Bitcoin transaction contains inputs that reference previous transaction outputs sent to different Bitcoin addresses, personally identifiable information of the user will leak into the blockchain in an uncontrolled manner. While undesirable, these transactions are frequently unavoidable due the natural fragmentation of wallet balances over time.
 
 This document proposes a set of best practice guidelines which minimize the uncontrolled disclosure of personally identifiable information by defining standard forms for transactions containing heterogenous input scripts.
 
@@ -20,7 +20,7 @@ This BIP is in the public domain.
 
 ==Definitions==
 
-* '''Heterogenous input script transaction (HIT)''': A transaction containing multiple inputs where the scripts of the previous outputs being consumed do not have identical scripts (e.g. a transaction spending outputs which were sent to more than one Bitcoin address)
+* '''Heterogenous input script transaction (HIT)''': A transaction containing multiple inputs where the scripts of the previous transaction outputs being consumed are not identical (e.g. a transaction spending outputs which were sent to more than one Bitcoin address)
 * '''Unavoidable heterogenous input script transaction''': An HIT created as a result of a user’s desire to create a new output with a value larger than the value of his wallet's largest existing unspent output
 * '''Intentional heterogenous input script transaction''': An HIT created as part of a user protection protocol for reducing uncontrolled disclosure of personally-identifying information (PII)
 
@@ -80,7 +80,7 @@ Clients which create intentional HITs must have the capability to form alternate
 
 ===Rules===
 
-A HIT formed via the proceding procedure will adhere to the following conditions:
+An HIT formed via the preceding procedure will adhere to the following conditions:
 
 # The number of unique inputs scripts must exceed the number of output scripts.
 # All output scripts must be unique.
@@ -88,7 +88,7 @@ A HIT formed via the proceding procedure will adhere to the following conditions
 ## "Standard outputs" refers to the set of outputs with equal value
 ## "Standard value" refers to the value of the standard outputs
 ## "Change outputs" refers to all outputs which are not standard outputs
-# For a HIT containing n standard outputs, there must exist at least one possible way to organize the inputs and outputs into n sets, where all sets satisfies the following:
+# For a HIT containing n standard outputs, there must exist at least one possible way to organize the inputs and outputs into n sets, where all sets satisfy the following:
 ## The set contains one or more inputs, exactly one standard output, and exactly one change output
 ## An input or output that appears in one set must not appear in any other set
 ## The sum of the inputs in the set minus the value of the change output is equal to the standard value with a tolerance equal to the transaction fee.
