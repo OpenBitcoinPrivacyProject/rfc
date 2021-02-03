@@ -1,0 +1,112 @@
+<pre>
+  OBPP-04
+  Title: Enhanced Selectivity Compact Block Filters
+  Author: Justus Ranvier <justus@openbitcoinprivacyproject.org>
+  Status: Draft
+  Created: 2021-02-03
+</pre>
+
+==Abstract==
+
+This RFC describes a structure for compact filters on block data, for use in the BIP 157 light client protocol<ref>https://github.com/bitcoin/bips/blob/master/bip-0157.mediawiki</ref> with increased selectivity compared to basic filter type described in BIP-158<ref>https://github.com/bitcoin/bips/blob/master/bip-0158.mediawiki</ref>.
+
+==Copyright==
+
+This RFC is in the public domain.
+
+==Motivations==
+
+The filters described by this RFC are intended to accomplish the following goals which are not possible to basic filters:
+
+* Filters should be a pure function of blocks.
+** Basic filters can not be calculated without access to all previous output scripts spent by the transactions in a block.
+* End users should be able to locate any transaction which references a public key of interest regardless of script format.
+** Basic filters index the entire output script as a whole instead of the individual data push elements, requiring end users to anticipate all the script forms in which their keys may be used.
+* The false positive rate should not result in excessive block downloads for wallets that utilize a large number of keys.
+** Wallets which implement Reusable Payment Codes<ref>https://github.com/bitcoin/bips/blob/master/bip-0047.mediawiki</ref> must identify relevant transactions based on a significantly larger set of keys compared to legacy wallets.
+
+== Specification ==
+
+Except where noted, filter operation is identical to basic filters as described in BIP-158.
+
+
+=== Filter Parameters ===
+
+This RFC defines one filter type:
+
+* ES (<code>0x58</code>)
+** <code>M = 12558895</code>
+** <code>P = 23</code>
+
+
+=== Contents ===
+
+An ES filter MUST contain exactly the following items for each transaction in a block:
+
+* txid
+* consumed outpoints
+* relevant data elements
+
+The filter MUST include all relevant data elements and outpoints located in the following locations:
+
+* outputs
+* inputs (except for coinbases)
+* witnesses
+* apparent redeem scripts
+
+=== Relevant Data Elements ===
+
+Relevant data elements are any data pushes of the following sizes:
+
+* 20 bytes
+* 32 bytes
+* 33 bytes
+* 64 bytes
+* 65 bytes
+
+Each data push MUST be added to the filter
+
+In addition, if the data push is 64 or 65 bytes, two additional elements MUST be added to the filter:
+
+* for 64 bytes pushes:
+** byte 0 through byte 31
+** byte 32 through byte 63
+
+* for 65 bytes pushes:
+** byte 1 through byte 32
+** byte 33 through byte 64
+
+
+=== Apparent Redeem Scripts ===
+
+Since ES filter construction does not rely on knowledge of previous blocks, the previous output script of an input can not precisely verified therefore a heuristic is required to identify data pushes in an input which might be a BIP-16 redeem script.
+
+The apparent redeem script heuristic will identify all redeem scripts with no false negatives, but a theoretical non-zero false positive rate. Arbitrary non-script data which is both falsely identified as a redeem script by this heuristic and also contains relevant data elements is rare in practice.
+
+
+==== Procedure ====
+
+The following procedure MUST be applied to all non-coinbase input scripts in a transaction:
+
+# If the final element of the script is not a data push then no redeem script exists.
+# Attempt to parse the final data push as a script.
+## Parsing MUST NOT fail based on undefined opcodes.
+## Parsing MUST fail if any opcodes corresponding to data pushes (0x01 through 0x4e) specify more data than is present.
+# If parsing did not fail, treat the resulting script as if it was another input in the transaction and add all of its relevant data elements to the filter.
+
+
+== Compatibility ==
+
+All known users of BIP-157 as of the time this RFC was authored are currently using basic (0x00) filters exclusively. Filter type 0x58 was chosen as number unlikely to collide with other efforts to introduce new filter types which may not be aware of this RFC.
+
+BIP-157 compliant clients ignore unknown filter types therefore nodes which attempt to download type 0x58 filters from nodes which do not implement this RFC will be harmlessly ignored.
+
+
+== Reference Implementation ==
+
+[[https://github.com/Open-Transactions/opentxs|Open-Transactions]]
+
+
+== References ==
+
+<references/>
