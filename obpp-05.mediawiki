@@ -1,0 +1,317 @@
+<pre>
+  OBPP-05
+  Title: Reusable Payment Codes for Hierarchical Deterministic Wallets, version 3
+  Author: Justus Ranvier <justus@openbitcoinprivacyproject.org>
+  Status: Draft
+  Created: 2021-02-15
+</pre>
+
+
+==Abstract==
+
+This RFC extends reusable payment codes as defined by BIP-47 by defining version 3 payment codes.
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
+
+
+==Copyright==
+
+This RFC is in the public domain.
+
+
+==Motivations==
+
+Version 3 payment codes address two shortcomings of previous payment code versions:
+
+* Key reuse will occur if the same payment code is used to receive transactions on more than one blockchain.
+* Both version 1 and version 2 notification transactions both require the use of an OP_RETURN output, which limits the number of notifications which can be performed by a standard transaction to one.
+
+
+== Specification ==
+
+Version 3 payment codes behave identically to version 1 and version 2 payment codes as defined in BIP-47 except where noted below.
+
+
+==Path levels==
+
+The recommended BIP-32 path levels for payment code derivation are identical to previous versions except for the coin type.
+
+===Coin type===
+
+Wallets which only support one coin type and use BIP-44 SHOULD set this value per BIP-44.
+
+Wallets which support multiple coin types and do not use version 3 payment codes SHOULD create a different payment code for each coin type and set this value per BIP-44.
+
+Wallets which support version 3 payment codes should use one payment code per logical user identity regardless of the number of coin types the wallet supports and SHOULD set this value to 0'.
+
+Hardened derivation is used at this level.
+
+
+==Versions==
+
+=== Defined Versions ===
+
+* Version 1
+** Address type: P2PKH
+** Notification type: address
+* Version 2
+** Address type: P2PKH
+** Notification type: bloom-multisig
+* Version 3
+** Address type: varied, see Payment Output Scripts
+** Notification type: cfilter-multisig
+
+=== Compatibility Rules ===
+
+# In any case where a notification or payment is sent between payment codes of different versions, the conventions of the recipient's version SHALL be used.
+# Implementations MUST NOT send notifications or payments to recipient payments codes with a version number for which the conventions are not known.
+# Implementations which receive notifications from sending payment code with a unknown version SHOULD assume the sender followed the first rule.
+
+
+==Version 3==
+
+===Representation===
+
+====Binary Serialization====
+
+* Byte 0: version. required value: 0x03
+* Bytes 1 - 33: compressed public key
+** Byte 0: sign. required value: 0x02 or 0x03
+** Bytes 1 - 31: x value, must be a member of the secp256k1 group
+
+The feature bits and chain code fields which were defined in earlier versions are no longer present in version 3.
+
+If a version 3 code must be serialized in 80 byte form, for example in order to send a notification transaction to a recipient of a lower version, use the serialization method from version 1. The chain code is the derived value defined below and the feature byte and other fields are all zero filled.
+
+====Base58 Serialization====
+
+When a payment code is presented to the user, it SHOULD be presented encoded in Base58Check form.
+
+* The version byte is: 0x22 (produces a "P" as the first character of the serialized form)
+* The payload is the binary serialization of the payment code
+
+===Protocol===
+
+====Definitions====
+
+* Chain code: Whenever BIP-32 calculations or other procedures require a chain code that corresponds to the public key the required value SHALL be calculated as <code>c = SHA256(SHA256(p))</code> where p is the compressed public key.
+* Payment code identifier: The script element used by senders to construct notification scripts and by recipient to locate their notifications SHALL consist of the first 32 bytes of <code>c = HMAC-SHA512(c, v)</code> where c is the chain code and v is the one byte version of the sender's payment code.
+
+====Notification Output====
+
+Note: this procedure is used if Bob uses a version 3 payment code (regardless of the the version of Alice's payment code). If Bob's payment code is not version 3, see the appropriate section of BIP-47.
+
+Note: this procedure may be used to send notifications from senders using older version payment codes to send notifications to version 3 recipients with slight modifications noted below.
+
+Version 3 notifications are self-contained to a single transaction output, therefore MAY be included as part of any transaction, whether related to the recipient of the notification or not.
+
+# Alice selects the private and associated public key designated for change output creation: <code>a, A = aG</code>
+# Alice derives a unique shared secret using ECDH:
+## Alice selects the public key associated with Bob's notification address: <code>B, where B = bG</code>
+## Alice calculates a secret point: <code>S = aB</code>
+## Alice calculates a 64 byte blinding factor: <code>s = HMAC-SHA512(Sx, A)</code> where Sx is the x value of the secret point
+# Alice serializes her payment code in binary form.
+# Alice generates renders her payment code  <code>P</code> unreadable to anyone except Bob: <code>P'</code>
+## Replace the x value with x': <code>x' = x XOR (first 32 bytes of s)</code>
+# Alice composes a notification output and adds it to an outgoing transaction
+## The notification output consists of a 1 of 3 bare multisig script.
+## The first key is A and MUST be in compressed form
+## The second key is the Bob's payment code identifier formatted as a compressed public key <code>F</code>
+### Byte 0: either 0x02 or 0x03
+### Byte 1-32: the value of Bob's payment code identifier which corresponds to the version of Alice's payment code
+## The last key is Alice's blinded payment code <code>G</code>
+### Byte 0-32: P'
+## Script opcodes:  <code>OP_1 A F G OP_3 OP_CHECKMULTISIG</code>
+
+The relative ordering of the keys in the notification output script MUST be maintained as A F G.
+
+# Bob watches for any transactions which contain notification output which reference his payment code identifiers.
+## Bob MUST watch for incoming notifications for his payment code version and SHOULD watch for notifications for all earlier versions
+## The recommended method for detecting incoming notification transactions is to use BIP-157 client-side filtering with OBPP-4 Enhanced Selectivity (ES) filters.
+### ES filters are capable of sub-element matching of uncompressed public keys
+### Bob detects notification transactions by adding his payment code identifiers to the set of elements to be matched.
+# When a transaction matching the payment code identifier is located, Bob's client examines it to determine if it contains a valid notification
+## A is the first key and must be 33 bytes
+## F is the second key may be 33 bytes or 65 bytes, but in either case bytes 1-32 must match one of Bob's payment code identifiers
+## G is the last key and may be 33 bytes or 65 bytes
+# Bob determines the version of Alice's payment code based on which of Bob's payment code identifiers was used to form the notification transaction.
+# If all keys in the script are compressed (33 bytes), then the incoming payment code to be unblinded is 34 bytes long. If F and G are 65 bytes then the incoming payment code to be unblinded is 80 bytes long.
+# Bob unblinds Alice's payment code
+## Bob selects the public key associated with his notification address: <code>B, where B = bG</code>
+## Bob calculates a secret point: <code>S = bA</code>
+## Bob calculates a 64 byte blinding factor: <code>s = HMAC-SHA512(Sx, A)</code> where Sx is the x value of the secret point
+## Bob unblinds P' to recover P
+### Replace the x value of P' with x': <code>x' = x XOR (first 32 bytes of s)</code> where x is the x of Alice's payment code
+## If the updated x value is a member of the secp256k1 group, the payment code is valid.
+## If the updated x value is not a member of the secp256k1 group, the payment code is ignored.
+
+Alice's wallet should spend the notification change output at the next appropriate opportunity.
+
+Wallets SHOULD prefer to create of notification outputs in any situation where a change output is required, if the wallet knows of the existence of any payment codes but has not yet sent a notification. The practice of preemptive notification makes assumptions about the relationship between a notification output and the transaction in which it is contained invalid, therefore wallets which practice preemptive notification MAY include the notification output with the first payment to a new transaction recipient.
+
+=====Earlier Version Senders=====
+
+Modify the above procedure as follows if the payment code to be conveyed is 80 bytes instead of 34 bytes:
+
+# Alice generates renders her payment code <code>P</code> unreadable to anyone except Bob: <code>P'</code>
+## Replace the x value with x': <code>x' = x XOR (first 32 bytes of s)</code>
+## Replace the chain code with c': <code>c' = c XOR (last 32 bytes of s)</code>
+## F is formatted as an uncompressed public key
+### Byte 0: 0x04
+### Byte 1-32: the value of Bob's payment code identifier which corresponds to the version of Alice's payment code
+### Byte 33-64: bytes 0 through 31 of P'
+## G is formatted as an uncompressed public key
+### Byte 0: 0x04
+### Byte 1-48: bytes 32 through 79 of P'
+### Byte 49-64: arbitrary, MAY be set to any value
+
+Bob recognizes when an incoming notification was sent by an earlier version user with an 80 byte payment code by noting the size of F and G are both 65 bytes.
+
+# Bob recomposes P' by concatenating bytes 33-64 of F and bytes 1-48 of G
+# Bob unblinds P' to recover P
+## Replace the x value of P' with x': <code>x' = x XOR (first 32 bytes of s)</code>
+## Replace the chain code of P' with c': <code>c' = c XOR (last 32 bytes of s)</code>
+
+====Sending====
+
+# Prior to this procedure, Alice MUST ensure that Bob is capable of accepting payments on the blockchain to be used via a suitable method. Such methods are outside the scope of this specification.
+# Each time Alice wants to initiate a transaction to Bob, Alice derives a unique public key for the transaction using ECDH as follows:
+## Alice selects the 0th private key derived from her payment code: <code>a</code>
+## Alice selects the next unused public key derived from Bob's payment code, starting from zero: <code>B, where B = bG</code>
+### The "next unused" public key is based on an index specific to the Alice-Bob context, not global to either Alice or Bob
+## Alice selects the 4 byte registered coin type for the transaction based on SLIP-0044, formatted as a 4 byte big endian integer: <code>t</code>
+## Alice calculates a secret point: <code>S = aB</code>
+## Alice calculates a scalar shared secret using the x value of S: <code>s = SHA256(HMAC-SHA512(Sx, t))</code>
+### If the value of s is not in the secp256k1 group, Alice MUST increment the index used to derive Bob's public key and try again.
+## Alice uses the scalar shared secret to calculate the ephemeral public key used to generate the payment output script for this transaction: <code>B' = B + sG</code>
+# Bob is watching for incoming payments on B' ever since he received the notification transaction from Alice.
+## Bob calculates n shared secrets with Alice, using the 0<sup>th</sup> public key derived from Alice's payment code, and private keys 0 - n derived from Bob's payment code, where n is his desired lookahead window.
+## Bob calculates the ephemeral deposit addresses using the same procedure as Alice: <code>B' = B + sG</code>
+## Bob calculate the private key for each ephemeral address as: <code>b' = b + s</code>
+
+====Payment Output Scripts====
+
+The pubkeys derived by the above procedure MAY be used to generate any of the following output script types. Receiving wallets SHOULD monitor for all applicable types:
+
+* Pay to pubkey (P2PK)
+* Pay to pubkey hash (P2PKH)
+* Either of the above scripts in pay to script hash form (P2SH)
+* On chains which support segwit: P2WPKH and P2WSH (P2PKH and P2PK)
+
+P2PK scripts SHOULD be preferred where practical. Script types which use 20 byte hashes and derived public keys are less secure than 32 byte public keys or non-derived public keys because the sender of a payment only requires 2<sup>80</sup> attempts on average to generate a public key or script hash with a colliding 20 byte hash.
+
+Outputs that are held in insecure (20 byte hash) scripts SHOULD be swept to secure scripts if the value of the output is large enough to make a 2<sup>80</sup> work attack profitable.
+
+
+==Test Vectors==
+
+=== Version 3 to Version 3 ===
+
+Alice will receive payments from Bob on the BTC blockchain. Bob will receive payments from Alice on the BTC testnet 3 blockchain.
+
+* Alice
+** Bip 39 words: <code>response seminar brave tip suit recall often sound stick owner lottery motion</code>
+** Serialized payment code (Base58): <code>PD1jTsa1rjnbMMLVbj5cg2c8KkFY32KWtPRqVVpSBkv1jf8zjHJVu</code>
+** Payment code identifiers
+*** Version 1: <code>77a215775bbacf7e0d325154a093e8d9f69c19f45b08d00114b214cc24b134f9</code>
+*** Version 2: <code>f84e63e94e70678ab8367ef91711259fc98885be92479afec1a6a656e2245636</code>
+*** Version 3: <code>05be1671949473c1b252db7aff98a8704841ad7cd19596f9d64ed81bd3e58bc8</code>
+** Public keys for payment scripts
+*** 0: <code>024edba30e70855e7846e850982f2eb3aefe33b292cc9a744604367de14cc018b8</code>
+*** 1: <code>03a769eb57ce38dc3f7d80c4464bc61b02153a8e881c472d6d3e99b1d8fe53100c</code>
+*** 2: <code>038f8e84682fb78ec6fdf3560020df035e144ce60bb9b09dd99b606d130140bd2c</code>
+*** 3: <code>0210964b717a97430e9ca206bf84e1b0834385a03af3c749d60ad632d31e511954</code>
+*** 4: <code>03b24c25099596f0984e4eedcc6147d1faff269a79f919e5d42414ea0691749174</code>
+*** 5: <code>0285b4cda5356a7333510fac98fc27da4df8a3fcf6f50df594fbe6013e78d64114</code>
+*** 6: <code>02a6946888b559db413f94a6de3aa974d4c22d881f132f753297baef510219327c</code>
+*** 7: <code>02ab944a2509a27b9b9f569736e6cb45cb1c900627573a01bb9dffe38131103a12</code>
+*** 8: <code>0276442e645c3f5e412b60ffac771a67b0ef1b652b18f18d101e9c6f70365cd183</code>
+*** 9: <code>039386636f65cbc72a70bacc0f43ee17862ead8d37941e72b630f37e048ef2d405</code>
+** Private key to be used for notification script: (m/44'/1'/0'/1/0) <code>872313fe1beb41a9e1ae19c0def97591e5c204387b64b85f4077078b232906d0</code>
+** Value of A for notification to Bob: <code>0383b5e54776628baacee0cbb66b4db31aa95176dba1f62cabf0415103d0fdbda6</code>
+** Value of F for notification to Bob: <code>02ce75616fcd80345bca54dabd279b155f960c57260378455b872269221de231b6</code>
+** Value of G for notification to Bob: <code>0292d97c287932848852890ded442311623e32ebfeba12e2020b41c2fbe12f3812</code>
+* Bob
+** Bip 39 words: <code>reward upper indicate eight swift arch injury crystal super wrestle already dentist</code>
+** Serialized payment code (Base58): <code>PD1jFsimY3DQUe7qGtx3z8BohTaT6r4kwJMCYXwp7uY8z6BSaFrpM</code>
+** Payment code identifiers
+*** Version 1: <code>4e299b083f610d5ab6e7e241089f185cf222deb9a790eacf01a72930c90d2261</code>
+*** Version 2: <code>a6806034129abafba1511019991cca9bd8bededb1580bdc4fe0eb905dec8da2d</code>
+*** Version 3: <code>ce75616fcd80345bca54dabd279b155f960c57260378455b872269221de231b6</code>
+** Public keys for payment scripts
+*** 0: <code>03dc41458b939d966a0e141281c2a7c5faf184dc43bc26160f0ffc3c583600c9b6</code>
+*** 1: <code>02513de274f78ce0c8cb827f25aae2ade941ac9d482002fc04ef60d580c5403afd</code>
+*** 2: <code>033cf4391b3e7daad0220b572d796ac0711e93e2ef389119d3ec0bed2debf0472a</code>
+*** 3: <code>02de639a0d80bc8b6976e71e5242b7f0ba5e9f8f6b317c0a180884424600bcaafc</code>
+*** 4: <code>036b08a58e0d664505c95e2e0ceaa87e34c82cc6ed91a94980fc631967cc8d931f</code>
+*** 5: <code>029d5dae4c27c59a9c207a1beafab9f1b8bef93e19b8bbd7614dae37e8f7c0210c</code>
+*** 6: <code>03003668a8915ba65adb9ff8cfcce7f8d5aae2655a210e1e863eda6cb41dd5e1d2</code>
+*** 7: <code>03a857d0bef97a0e5ffb1911e7cd13ced1bdce9c2a6a838dd5bdd8e805f44b8cc9</code>
+*** 8: <code>02bcfcdc2e7fbdaebf1fa69a74ccd219c919981353433538ff98979c252609c564</code>
+*** 9: <code>029dccbb87fec52713f90afbbef3e78dddef4dfa6858bbf2a5fd2fcd2582a5cf7f</code>
+** Private key to be used for notification script: (m/44'/0'/0'/1/0) <code>0fb05a28df58b2add0d01eb491962b79092239e4d9396442eed83144b6541f4c</code>
+** Value of A for notification to Alice: <code>0389087b9573ccc7efc5252a8a7c93d349d9b3dd882724c818e5369cbff0647d35</code>
+** Value of F for notification to Alice: <code>0205be1671949473c1b252db7aff98a8704841ad7cd19596f9d64ed81bd3e58bc8</code>
+** Value of G for notification to Alice: <code>027f88837a6d02949388c80c43efd352bea4483bb86764ba3dfa5b0c11e97b0ebc</code>
+
+
+=== Version 1 to Version 3 ===
+
+Alice will generate a version 1 payment code and will receive payments from Bob on the BTC blockchain. Bob will generate a version 3 payment code and will receive payments from Alice on the BTC testnet 3 blockchain.
+
+* Alice
+** Bip 39 words: <code>response seminar brave tip suit recall often sound stick owner lottery motion</code>
+** Serialized payment code (Base58): <code>PM8TJTLJbPRGxSbc8EJi42Wrr6QbNSaSSVJ5Y3E4pbCYiTHUskHg13935Ubb7q8tx9GVbh2UuRnBc3WSyJHhUrw8KhprKnn9eDznYGieTzFcwQRya4GA</code>
+** Public keys for payment scripts
+*** 0: <code>0275fd0d1519ac24f4944a843c6475cda578d6286ee846ece105d5b0c69a1b9b3e</code>
+*** 1: <code>035e6e2c1701229a7a4cddcfa83f42f06cafeba42a63dfb3287c35ffb8d1c6f872</code>
+*** 2: <code>039f32033263f0fac7636fc3f2ffc68d4701dcb81641ed6c0f8d76b4fc7f2b5a3a</code>
+*** 3: <code>02aa38313e99a2e7d8f22a7efa6b1c4b1f2769e4b91622bd4e6d919ffd2a41f388</code>
+*** 4: <code>02ed75fc071317eae5d046389d54614dfb787856739f812e8de0f12f30d4d6bcee</code>
+*** 5: <code>03d6cfc06f11b706a0f34de2486246c4495ce90ee02553d3239b5a235d19153ba3</code>
+*** 6: <code>034b87613a9a6230ad831839e5da55d29970154d6b91bd3e42aeeb70b234b1b9ff</code>
+*** 7: <code>02f014490536f79c0c8c1b2cee39428a1446a74ec1af19ce515da6e3fb29db0cfa</code>
+*** 8: <code>03f96d069cffd4a0bb9430f6cda1376cee63825ec1619b5cc22077122c36b200c9</code>
+*** 9: <code>03406c84ad2c5549af30e0c8886922eb51db925e35b7ed058d52f2458f1ce5d8ca</code>
+** Private key to be used for notification script: (m/44'/0'/0'/1/0) <code>872313fe1beb41a9e1ae19c0def97591e5c204387b64b85f4077078b232906d0</code>
+** Blinded payment code: <code>01000292d97c287932848852890ded442311623e32ebfeba12e2020b41c2fbe12f38127e36136254548e0a4dfc14232b6de263a69a1955629b75137d2beeccb639b2d300000000000000000000000000</code>
+** Value of A for notification to Bob: <code>0383b5e54776628baacee0cbb66b4db31aa95176dba1f62cabf0415103d0fdbda6</code>
+** Value of F for notification to Bob: <code>044e299b083f610d5ab6e7e241089f185cf222deb9a790eacf01a72930c90d226101000292d97c287932848852890ded442311623e32ebfeba12e2020b41c2fbe1</code>
+** Value of G for notification to Bob: <code>042f38127e36136254548e0a4dfc14232b6de263a69a1955629b75137d2beeccb639b2d300000000000000000000000000XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX</code>
+*** The final 16 bytes may be any value
+* Bob
+** Bip 39 words: <code>reward upper indicate eight swift arch injury crystal super wrestle already dentist</code>
+** Serialized payment code (Base58): <code>PD1jFsimY3DQUe7qGtx3z8BohTaT6r4kwJMCYXwp7uY8z6BSaFrpM</code>
+** Payment code identifiers
+*** Version 1: <code>4e299b083f610d5ab6e7e241089f185cf222deb9a790eacf01a72930c90d2261</code>
+*** Version 2: <code>a6806034129abafba1511019991cca9bd8bededb1580bdc4fe0eb905dec8da2d</code>
+*** Version 3: <code>ce75616fcd80345bca54dabd279b155f960c57260378455b872269221de231b6</code>
+** Public keys for payment scripts
+*** 0: <code>03bebccead98ce8d1ba065b814ce565ea8a79979a572c901188d5c274af1c82d9b</code>
+*** 1: <code>02f0e0a7998e55c559fa57292a101cf5ab6e6cbe86bfdcf222e26d63c7773bbcf0</code>
+*** 2: <code>038a2b1c008a9e048b2bb93d4eac24357012d5bd0fe84e772af646bad482f0528b</code>
+*** 3: <code>0343cd902a36f5a4dda6bb11489f7bb4ebe381586e07fafc9e5039abb14c314972</code>
+*** 4: <code>02b90e340e73eb2bc1addaf51e2229ec1d2aae78569879d022d208964fa741b6e1</code>
+*** 5: <code>03f1ff5daadfb93ca15dfe4fe96ee77fa6465bcf0b98ab6b599e8b7a8e962ed38d</code>
+*** 6: <code>02d7f5628abf1b64f7f4f1eea11a510740d1110a8f937821870eb5f47155b09c70</code>
+*** 7: <code>02bd05db146de0273e704ecf162bef5de21032fc9b646237038d9f00004436172c</code>
+*** 8: <code>020f0b8c3bf9a97566fae19b30b93b6a19b26905bcf6742260699a1cba39ff639d</code>
+*** 9: <code>03ac995a811b20e68541ab1840671c84cc2765ed9625a53daf57c9f07ecfabfb42</code>
+** Private key to be used for blinding: (m/44'/0'/0'/1/0) <code>0fb05a28df58b2add0d01eb491962b79092239e4d9396442eed83144b6541f4c</code>
+** Corresponding public key: <code>0389087b9573ccc7efc5252a8a7c93d349d9b3dd882724c818e5369cbff0647d35</code>
+** Outpoint to be used for blinding: <code>86f411ab1c8e70ae8a0795ab7a6757aea6e4d5ae1826fc7b8f00c597d500609c01000000</code>
+** Blinded payment code: <code>030002b07dccadbf4289635ecf85eb12e1a0d7a7c93bcb905d5a5b2e75e9248fe4c92c113ccdbd406889022aa8a3d40d329553586d73914877626479f26b08ef7d3de000000000000000000000000000</code>
+
+
+== Reference Implementation ==
+
+[[https://github.com/Open-Transactions/opentxs|Open-Transactions]]
+
+
+==Reference==
+
+* [[obpp-04.mediawiki|OBPP-04: Enhanced Selectivity Compact Block Filters]]
+* [[https://github.com/bitcoin/bips/blob/master/bip-0047.mediawiki|BIP-0047: Reusable Payment Codes for Hierarchical Deterministic Wallets]]
+* [[https://github.com/bitcoin/bips/blob/master/bip-0147.mediawiki|BIP-0147: Transaction Signature Verification for Version 0 Witness Program]]
+* [[https://github.com/bitcoin/bips/blob/master/bip-0157.mediawiki|BIP-0157: Client Side Block Filtering]]
+* [[https://github.com/satoshilabs/slips/blob/master/slip-0044.md|SLIP-0044: Registered coin types for BIP-0044]]
