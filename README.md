@@ -10,3 +10,6 @@
 
 **3.**  [Best Practices for Heterogeneous Input Script Transactions](bips/obpp-03.mediawiki)
    * accepted into [BIP repository](https://github.com/bitcoin/bips) as [BIP-0126](https://github.com/bitcoin/bips/blob/master/bip-0126.mediawiki)
+
+**4.**  [Enhanced Selectivity Compact Block Filters](obpp-04.mediawiki)
+   * Draft, test vectors not yet determined
