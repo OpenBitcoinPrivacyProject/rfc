@@ -199,13 +199,13 @@ The pubkeys derived by the above procedure MAY be used to generate any of the fo
 ** Pay to pubkey hash (P2PKH)
 * Version 4
 ** Pay to witness pubkey hash (P2WPKH), chains with segwit support only
-** Pay to pubkey hash (P2PKH)
+** Pay to pubkey hash (P2PKH), chains without segwit support only
 
 P2PK scripts SHOULD be preferred for security where practical and allowed by the recipient for. Script types which use 20 byte hashes and derived public keys are less secure than 32 byte public keys or non-derived public keys because the sender of a payment only requires 2<sup>80</sup> attempts on average to generate a public key or script hash with a colliding 20 byte hash.
 
 Senders MUST NOT create P2PK scripts for version 4 recipients.
 
-Senders SHOULD prefer P2WPKH over P2PKH on chains where segwit is supported.
+Senders MUST prefer P2WPKH over P2PKH on chains where segwit is supported.
 
 Outputs that are held in insecure (20 byte hash) scripts SHOULD be swept to secure scripts if the value of the output is large enough to make a 2<sup>80</sup> work attack profitable.
 
