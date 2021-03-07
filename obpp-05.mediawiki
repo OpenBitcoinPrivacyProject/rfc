@@ -1,6 +1,6 @@
 <pre>
   OBPP-05
-  Title: Reusable Payment Codes for Hierarchical Deterministic Wallets, version 3
+  Title: Reusable Payment Codes for Hierarchical Deterministic Wallets, version 3 and 4
   Author: Justus Ranvier <justus@openbitcoinprivacyproject.org>
   Status: Draft
   Created: 2021-02-15
@@ -9,7 +9,7 @@
 
 ==Abstract==
 
-This RFC extends reusable payment codes as defined by BIP-47 by defining version 3 payment codes.
+This RFC extends reusable payment codes as defined by BIP-47 by defining version 3 and version 4 payment codes.
 
 The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED",  "MAY", and "OPTIONAL" in this document are to be interpreted as described in RFC 2119.
 
@@ -29,7 +29,7 @@ Version 3 payment codes address two shortcomings of previous payment code versio
 
 == Specification ==
 
-Version 3 payment codes behave identically to version 1 and version 2 payment codes as defined in BIP-47 except where noted below.
+Version 3 and 4 payment codes behave identically to version 1 and version 2 payment codes as defined in BIP-47 except where noted below.
 
 
 ==Path levels==
@@ -40,9 +40,9 @@ The recommended BIP-32 path levels for payment code derivation are identical to 
 
 Wallets which only support one coin type and use BIP-44 SHOULD set this value per BIP-44.
 
-Wallets which support multiple coin types and do not use version 3 payment codes SHOULD create a different payment code for each coin type and set this value per BIP-44.
+Wallets which support multiple coin types and do not use version 3 or higher payment codes SHOULD create a different payment code for each coin type and set this value per BIP-44.
 
-Wallets which support version 3 payment codes should use one payment code per logical user identity regardless of the number of coin types the wallet supports and SHOULD set this value to 0'.
+Wallets which support version 3 or higher payment codes should use one payment code per logical user identity regardless of the number of coin types the wallet supports and SHOULD set this value to 0'.
 
 Hardened derivation is used at this level.
 
@@ -57,7 +57,7 @@ Hardened derivation is used at this level.
 * Version 2
 ** Address type: P2PKH
 ** Notification type: bloom-multisig
-* Version 3
+* Version 3 and Version 4
 ** Address type: varied, see Payment Output Scripts
 ** Notification type: cfilter-multisig
 
@@ -79,7 +79,7 @@ Hardened derivation is used at this level.
 ** Byte 0: sign. required value: 0x02 or 0x03
 ** Bytes 1 - 31: x value, must be a member of the secp256k1 group
 
-The feature bits and chain code fields which were defined in earlier versions are no longer present in version 3.
+The feature bits and chain code fields which were defined in earlier versions are no longer present in version 3 or higher.
 
 If a version 3 code must be serialized in 80 byte form, for example in order to send a notification transaction to a recipient of a lower version, use the serialization method from version 1. The chain code is the derived value defined below and the feature byte and other fields are all zero filled.
 
@@ -101,7 +101,7 @@ When a payment code is presented to the user, it SHOULD be presented encoded in 
 
 Note: this procedure is used if Bob uses a version 3 payment code (regardless of the the version of Alice's payment code). If Bob's payment code is not version 3, see the appropriate section of BIP-47.
 
-Note: this procedure may be used to send notifications from senders using older version payment codes to send notifications to version 3 recipients with slight modifications noted below.
+Note: this procedure may be used to send notifications from senders using older version payment codes to send notifications to version 3 or version 4 recipients with slight modifications noted below.
 
 Version 3 notifications are self-contained to a single transaction output, therefore MAY be included as part of any transaction, whether related to the recipient of the notification or not.
 
@@ -193,12 +193,19 @@ Bob recognizes when an incoming notification was sent by an earlier version user
 
 The pubkeys derived by the above procedure MAY be used to generate any of the following output script types. Receiving wallets SHOULD monitor for all applicable types:
 
-* Pay to pubkey (P2PK)
-* Pay to pubkey hash (P2PKH)
-* Either of the above scripts in pay to script hash form (P2SH)
-* On chains which support segwit: P2WPKH and P2WSH (P2PKH and P2PK)
+* Version 3
+** Pay to pubkey (P2PK), preferred
+** Pay to witness pubkey hash (P2WPKH), chains with segwit support only
+** Pay to pubkey hash (P2PKH)
+* Version 4
+** Pay to witness pubkey hash (P2WPKH), chains with segwit support only
+** Pay to pubkey hash (P2PKH), chains without segwit support only
 
-P2PK scripts SHOULD be preferred where practical. Script types which use 20 byte hashes and derived public keys are less secure than 32 byte public keys or non-derived public keys because the sender of a payment only requires 2<sup>80</sup> attempts on average to generate a public key or script hash with a colliding 20 byte hash.
+P2PK scripts SHOULD be preferred for security where practical and allowed by the recipient for. Script types which use 20 byte hashes and derived public keys are less secure than 32 byte public keys or non-derived public keys because the sender of a payment only requires 2<sup>80</sup> attempts on average to generate a public key or script hash with a colliding 20 byte hash.
+
+Senders MUST NOT create P2PK scripts for version 4 recipients.
+
+Senders MUST prefer P2WPKH over P2PKH on chains where segwit is supported.
 
 Outputs that are held in insecure (20 byte hash) scripts SHOULD be swept to secure scripts if the value of the output is large enough to make a 2<sup>80</sup> work attack profitable.
 
