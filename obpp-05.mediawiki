@@ -120,7 +120,7 @@ Version 3 notifications are self-contained to a single transaction output, there
 ### Byte 0: either 0x02 or 0x03
 ### Byte 1-32: the value of Bob's payment code identifier which corresponds to the version of Alice's payment code
 ## The last key is Alice's blinded payment code <code>G</code>
-### Byte 0-32: P'
+### Byte 1-33: P'
 ## Script opcodes:  <code>OP_1 A F G OP_3 OP_CHECKMULTISIG</code>
 
 The relative ordering of the keys in the notification output script MUST be maintained as A F G.
