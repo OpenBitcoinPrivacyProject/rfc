@@ -137,7 +137,7 @@ The relative ordering of the keys in the notification output script MUST be main
 # Bob determines the version of Alice's payment code based on which of Bob's payment code identifiers was used to form the notification transaction.
 # If all keys in the script are compressed (33 bytes), then the incoming payment code to be unblinded is 34 bytes long. If F and G are 65 bytes then the incoming payment code to be unblinded is 80 bytes long.
 # Bob unblinds Alice's payment code
-## Bob selects the public key associated with his notification address: <code>B, where B = bG</code>
+## Bob selects the private key associated with his notification address: <code>b</code>
 ## Bob calculates a secret point: <code>S = bA</code>
 ## Bob calculates a 64 byte blinding factor: <code>s = HMAC-SHA512(Sx, A)</code> where Sx is the x value of the secret point
 ## Bob unblinds P' to recover P
