@@ -96,7 +96,7 @@ When a payment code is presented to the user, it SHOULD be presented encoded in 
 
 * Chain code: Whenever BIP-32 calculations or other procedures require a chain code that corresponds to the public key the required value SHALL be calculated as <code>c = SHA256(SHA256(p))</code> where p is the compressed public key.
 * Payment code identifier: The script element used by senders to construct notification scripts and by recipient to locate their notifications SHALL consist of the first 32 bytes of <code>c = HMAC-SHA512(c, v)</code> where c is the chain code and v is the one byte version of the sender's payment code.
-* Notification address: The 0th non-hardened key pair derived from the  BIP32 extended private key created using the BIP47 account private bytes and the chain code as described above.
+* Notification address: The 0th non-hardened key pair derived from the BIP32 extended private key created using the BIP47 account private bytes and the chain code as described above.
 
 ====Notification Output====
 
