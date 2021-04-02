@@ -180,7 +180,7 @@ Bob recognizes when an incoming notification was sent by an earlier version user
 ## Alice selects the 0th private key derived from her payment code: <code>a</code>
 ## Alice selects the next unused public key derived from Bob's payment code, starting from zero: <code>B, where B = bG</code>
 ### The "next unused" public key is based on an index specific to the Alice-Bob context, not global to either Alice or Bob
-## Alice selects the 4 byte registered coin type for the transaction based on SLIP-0044, formatted as a 4 byte big endian integer: <code>t</code>
+## Alice selects the 4 byte registered coin type for the transaction based on SLIP-0044, formatted as a 4 byte big endian integer. The unhardened value is used: <code>t</code>
 ## Alice calculates a secret point: <code>S = aB</code>
 ## Alice calculates a scalar shared secret using the x value of S: <code>s = SHA256(HMAC-SHA512(Sx, t))</code>
 ### If the value of s is not in the secp256k1 group, Alice MUST increment the index used to derive Bob's public key and try again.
