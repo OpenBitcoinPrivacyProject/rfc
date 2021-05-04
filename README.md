@@ -15,4 +15,4 @@
    * Draft, test vectors not yet determined
 
 **5.**  [Reusable Payment Codes for Hierarchical Deterministic Wallets, version 3](obpp-05.mediawiki)
-   * Draft, test vectors not yet verified
+   * Final
