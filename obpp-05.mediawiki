@@ -2,7 +2,7 @@
   OBPP-05
   Title: Reusable Payment Codes for Hierarchical Deterministic Wallets, version 3 and 4
   Author: Justus Ranvier <justus@openbitcoinprivacyproject.org>
-  Status: Draft
+  Status: Final
   Created: 2021-02-15
 </pre>
 
